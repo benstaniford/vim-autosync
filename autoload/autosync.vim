@@ -51,6 +51,7 @@ function! autosync#on_buf_read_pre()
     endif
     
     if has('python3')
+        call s:ensure_python_module()
         py3 autosync_core.on_buf_read_pre()
     endif
 endfunction
@@ -61,18 +62,21 @@ function! autosync#on_buf_write_post()
     endif
     
     if has('python3')
+        call s:ensure_python_module()
         py3 autosync_core.on_buf_write_post()
     endif
 endfunction
 
 function! autosync#pull_current()
     if has('python3')
+        call s:ensure_python_module()
         py3 autosync_core.manual_pull()
     endif
 endfunction
 
 function! autosync#push_current()
     if has('python3')
+        call s:ensure_python_module()
         py3 autosync_core.manual_push()
     endif
 endfunction
@@ -94,4 +98,19 @@ function! autosync#check_buffer_reload()
         checktime
         let b:autosync_check_reload = 0
     endif
+endfunction
+
+function! s:ensure_python_module()
+    " Ensure the Python module is available
+    py3 << EOF
+try:
+    autosync_core
+except NameError:
+    import sys
+    import vim
+    plugin_dir = vim.eval("expand('<sfile>:p:h:h')")
+    sys.path.insert(0, plugin_dir + '/python3')
+    import autosync_core
+    autosync_core.initialize()
+EOF
 endfunction
