@@ -1,0 +1,4 @@
+# Declare vim files will always have LF line endings on checkout.
+*.vim text eol=lf
+_vimrc text eol=lf
+*.py text eol=lf
