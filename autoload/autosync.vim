@@ -43,6 +43,8 @@ function! autosync#setup()
     echo 'g:autosync_enabled - Enable/disable plugin (default: 1)'
     echo 'g:autosync_commit_message_template - Template for commit messages'
     echo 'g:autosync_silent - Suppress status messages (default: 0)'
+    echo 'g:autosync_auto_commit_before_pull - Auto-commit changes before pull (default: 1)'
+    echo 'g:autosync_debug - Enable debug mode (default: 0)'
 endfunction
 
 function! autosync#on_buf_read_pre()
@@ -168,6 +170,7 @@ EOF
     echo 'Enabled: ' . (g:autosync_enabled ? 'Yes' : 'No')
     echo 'Silent mode: ' . (g:autosync_silent ? 'Yes' : 'No')
     echo 'Debug mode: ' . (exists('g:autosync_debug') ? (g:autosync_debug ? 'Yes' : 'No') : 'No')
+    echo 'Auto-commit before pull: ' . (exists('g:autosync_auto_commit_before_pull') ? (g:autosync_auto_commit_before_pull ? 'Yes' : 'No') : 'Yes')
 endfunction
 
 function! s:ensure_python_module()

@@ -99,6 +99,14 @@ def _is_silent() -> bool:
         return False
 
 
+def _auto_commit_before_pull() -> bool:
+    """Check if auto-commit before pull is enabled."""
+    try:
+        return bool(int(vim.eval('g:autosync_auto_commit_before_pull')))
+    except (vim.error, ValueError):
+        return True  # Default to True for backward compatibility
+
+
 def _echo_message(message: str, error: bool = False):
     """Echo a message to Vim if not in silent mode."""
     if _is_silent():
@@ -178,6 +186,28 @@ def _should_pull(repo_dir: str) -> bool:
     return current_time - last_pull_time >= pull_interval
 
 
+def _commit_all_changes(repo: Repo, repo_dir: str):
+    """Commit all uncommitted changes in the repository."""
+    try:
+        # Add all changed files to the index
+        repo.git.add(A=True)  # Equivalent to 'git add -A'
+        
+        # Create a commit message
+        commit_template = _get_commit_template()
+        # Use a generic message for bulk commits during pull
+        commit_msg = "Auto-sync: Committing changes before pull"
+        
+        # Commit the changes
+        repo.index.commit(commit_msg)
+        
+        if not _is_silent():
+            _echo_message(f"Committed uncommitted changes in {os.path.basename(repo_dir)}")
+            
+    except Exception as e:
+        _logger.error(f"Failed to commit changes in {repo_dir}: {e}")
+        raise  # Re-raise to let the caller handle it
+
+
 def _async_pull(repo: Repo, repo_dir: str):
     """Perform git pull in a background thread."""
     operation_key = f"pull:{repo_dir}"
@@ -189,7 +219,18 @@ def _async_pull(repo: Repo, repo_dir: str):
         _active_operations.add(operation_key)
     
     try:
-        # Reduce log verbosity - only log significant events
+        # Check if there are uncommitted changes and if we should auto-commit
+        if repo.is_dirty():
+            if _auto_commit_before_pull():
+                # Commit all uncommitted changes before pulling
+                _commit_all_changes(repo, repo_dir)
+            else:
+                # User has disabled auto-commit, so skip the pull
+                if not _is_silent():
+                    _echo_message(f"Skipping pull for {os.path.basename(repo_dir)} - uncommitted changes present", error=True)
+                return
+        
+        # Now attempt the pull
         repo.remotes.origin.pull()
         _update_last_pull_time(repo_dir)
         # Only show message if not silent
@@ -200,8 +241,16 @@ def _async_pull(repo: Repo, repo_dir: str):
         vim.command(f"call timer_start(100, {{-> autosync#check_buffer_reload()}})")
         
     except GitCommandError as e:
-        _logger.error(f"Git pull failed for {repo_dir}: {e}")
-        _echo_message(f"Git pull failed for {repo_dir}: {e}", error=True)
+        error_msg = str(e)
+        if "merge conflict" in error_msg.lower() or "conflict" in error_msg.lower():
+            _logger.error(f"Merge conflict during pull for {repo_dir}: {e}")
+            _echo_message(f"Merge conflict in {repo_dir}. Please resolve manually.", error=True)
+        elif "up to date" in error_msg.lower():
+            # This is actually not an error, just log it
+            _logger.debug(f"Repository {repo_dir} is already up to date")
+        else:
+            _logger.error(f"Git pull failed for {repo_dir}: {e}")
+            _echo_message(f"Git pull failed for {repo_dir}: {e}", error=True)
     except Exception as e:
         _logger.error(f"Unexpected error during pull for {repo_dir}: {e}")
         _echo_message(f"Unexpected error during pull: {e}", error=True)

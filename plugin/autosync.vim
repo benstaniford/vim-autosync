@@ -36,6 +36,10 @@ if !exists('g:autosync_debug')
     let g:autosync_debug = 0
 endif
 
+if !exists('g:autosync_auto_commit_before_pull')
+    let g:autosync_auto_commit_before_pull = 1
+endif
+
 " Initialize Python module
 if has('python3')
     py3 import sys
