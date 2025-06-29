@@ -57,6 +57,7 @@ command! AutoSyncStatus call autosync#status()
 command! AutoSyncPull call autosync#pull_current()
 command! AutoSyncPush call autosync#push_current()
 command! AutoSyncSetup call autosync#setup()
+command! AutoSyncDiagnose call autosync#diagnose()
 
 " Setup autocommands
 augroup AutoSync

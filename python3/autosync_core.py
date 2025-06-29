@@ -36,8 +36,14 @@ def initialize():
     """Initialize the plugin."""
     global _initialized
     if not GIT_AVAILABLE:
-        vim.command("echoerr 'vim-autosync requires GitPython. Install with: pip install GitPython'")
-        return
+        error_msg = "vim-autosync requires GitPython. Install with: python3 -m pip install GitPython"
+        _logger.error(error_msg)
+        try:
+            vim.command(f"echoerr '{error_msg}'")
+        except:
+            # If vim.command fails, we're probably not in a Vim context
+            print(f"ERROR: {error_msg}")
+        raise ImportError("GitPython not available")
     
     # Setup logging based on debug setting
     if _is_debug():
