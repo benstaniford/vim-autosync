@@ -1,0 +1,110 @@
+*autosync.txt*    Auto-sync files to git repositories as you edit    *vim-autosync*
+
+Author: Ben
+License: MIT
+Version: 1.0
+
+CONTENTS                                                     *autosync-contents*
+
+1. Introduction ........................ |autosync-introduction|
+2. Requirements ........................ |autosync-requirements|
+3. Configuration ....................... |autosync-configuration|
+4. Commands ............................ |autosync-commands|
+5. Examples ............................ |autosync-examples|
+
+==============================================================================
+1. INTRODUCTION                                         *autosync-introduction*
+
+vim-autosync is a plugin that automatically synchronizes your files with Git
+repositories as you edit them. It performs git pull operations when you open
+files and git commit/push operations when you save files, all asynchronously
+to avoid blocking your editing workflow.
+
+==============================================================================
+2. REQUIREMENTS                                         *autosync-requirements*
+
+- Vim with Python 3 support (|+python3|)
+- GitPython library (install with: pip install GitPython)
+- Git repositories that are already initialized with remotes configured
+
+==============================================================================
+3. CONFIGURATION                                       *autosync-configuration*
+
+                                                           *g:autosync_dirs*
+g:autosync_dirs~
+        List of directories to manage. Each directory should be a Git
+        repository. Supports ~ expansion.
+        Default: []
+        Example: >
+            let g:autosync_dirs = ['~/Wiki', '~/Notes']
+<
+                                                        *g:autosync_enabled*
+g:autosync_enabled~
+        Enable or disable the plugin.
+        Default: 1
+        Example: >
+            let g:autosync_enabled = 0
+<
+                                                   *g:autosync_pull_interval*
+g:autosync_pull_interval~
+        Number of seconds between automatic pull operations.
+        Default: 60
+        Example: >
+            let g:autosync_pull_interval = 120
+<
+                                          *g:autosync_commit_message_template*
+g:autosync_commit_message_template~
+        Template for commit messages. %s will be replaced with the relative
+        file path.
+        Default: 'Auto-sync: Updated %s'
+        Example: >
+            let g:autosync_commit_message_template = '[AUTO] %s modified'
+<
+                                                         *g:autosync_silent*
+g:autosync_silent~
+        Suppress status messages.
+        Default: 0
+        Example: >
+            let g:autosync_silent = 1
+<
+
+==============================================================================
+4. COMMANDS                                                 *autosync-commands*
+
+:AutoSyncEnable                                             *:AutoSyncEnable*
+        Enable the plugin.
+
+:AutoSyncDisable                                           *:AutoSyncDisable*
+        Disable the plugin.
+
+:AutoSyncToggle                                             *:AutoSyncToggle*
+        Toggle the plugin on/off.
+
+:AutoSyncStatus                                             *:AutoSyncStatus*
+        Show current plugin status and configuration.
+
+:AutoSyncPull                                                 *:AutoSyncPull*
+        Manually pull changes for the current file's repository.
+
+:AutoSyncPush                                                 *:AutoSyncPush*
+        Manually commit and push the current file.
+
+:AutoSyncSetup                                               *:AutoSyncSetup*
+        Show setup instructions.
+
+==============================================================================
+5. EXAMPLES                                                 *autosync-examples*
+
+Basic setup: >
+    let g:autosync_dirs = ['~/Wiki']
+<
+
+Advanced setup: >
+    let g:autosync_dirs = ['~/Wiki', '~/Notes', '~/Documents/Research']
+    let g:autosync_pull_interval = 300
+    let g:autosync_commit_message_template = 'Auto-update: %s'
+    let g:autosync_silent = 1
+<
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

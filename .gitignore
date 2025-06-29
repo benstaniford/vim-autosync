@@ -205,3 +205,14 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Vim specific files
+*.swp
+*.swo
+*~
+.netrwhist
+tags
+.vimrc.local
+
+# Plugin specific
+.last_pull_timestamp
