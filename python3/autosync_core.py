@@ -8,7 +8,6 @@ import vim
 import os
 import threading
 import time
-import json
 import logging
 from typing import Dict, List, Optional, Set
 from pathlib import Path
@@ -26,13 +25,11 @@ _active_operations: Set[str] = set()
 _lock = threading.Lock()
 _initialized = False
 
-# Logger setup
+# Logger setup - disable console output to avoid vim startup messages
 _logger = logging.getLogger('vim-autosync')
-_handler = logging.StreamHandler()
-_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-_handler.setFormatter(_formatter)
-_logger.addHandler(_handler)
-_logger.setLevel(logging.INFO)
+# Only log to file if needed, not to console to avoid vim startup noise
+_logger.setLevel(logging.WARNING)  # Only show warnings and errors
+_logger.addHandler(logging.NullHandler())  # Prevent any default handlers
 
 
 def initialize():
@@ -42,8 +39,17 @@ def initialize():
         vim.command("echoerr 'vim-autosync requires GitPython. Install with: pip install GitPython'")
         return
     
+    # Setup logging based on debug setting
+    if _is_debug():
+        _logger.setLevel(logging.DEBUG)
+        # Add console handler for debug mode
+        _handler = logging.StreamHandler()
+        _formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        _handler.setFormatter(_formatter)
+        _logger.addHandler(_handler)
+        _logger.debug("vim-autosync initialized in debug mode")
+    
     _initialized = True
-    _logger.info("vim-autosync initialized")
 
 
 def _get_managed_dirs() -> List[str]:
@@ -69,6 +75,14 @@ def _get_commit_template() -> str:
         return vim.eval('g:autosync_commit_message_template')
     except vim.error:
         return 'Auto-sync: Updated %s'
+
+
+def _is_debug() -> bool:
+    """Check if debug mode is enabled."""
+    try:
+        return bool(int(vim.eval('g:autosync_debug')))
+    except (vim.error, ValueError):
+        return False
 
 
 def _is_silent() -> bool:
@@ -104,7 +118,7 @@ def _get_repo_for_file(filepath: str) -> Optional[Repo]:
             if abs_managed_dir not in _repos:
                 try:
                     _repos[abs_managed_dir] = Repo(abs_managed_dir)
-                    _logger.info(f"Initialized repo for {abs_managed_dir}")
+                    # Only log errors, not successful initialization
                 except Exception as e:
                     _logger.error(f"Failed to initialize repo for {abs_managed_dir}: {e}")
                     _echo_message(f"Error initializing Git repository for {abs_managed_dir}: {e}", error=True)
@@ -164,15 +178,17 @@ def _async_pull(repo: Repo, repo_dir: str):
     
     with _lock:
         if operation_key in _active_operations:
-            _logger.info(f"Pull already in progress for {repo_dir}")
+            # Don't log routine duplicate operation checks
             return
         _active_operations.add(operation_key)
     
     try:
-        _logger.info(f"Starting pull for {repo_dir}")
+        # Reduce log verbosity - only log significant events
         repo.remotes.origin.pull()
         _update_last_pull_time(repo_dir)
-        _logger.info(f"Pull completed for {repo_dir}")
+        # Only show message if not silent
+        if not _is_silent():
+            _echo_message(f"Pulled updates for {os.path.basename(repo_dir)}")
         
         # Schedule a buffer reload check
         vim.command(f"call timer_start(100, {{-> autosync#check_buffer_reload()}})")
@@ -194,12 +210,12 @@ def _async_commit_and_push(repo: Repo, repo_dir: str, rel_filepath: str):
     
     with _lock:
         if operation_key in _active_operations:
-            _logger.info(f"Push already in progress for {rel_filepath}")
+            # Don't log routine duplicate operation checks
             return
         _active_operations.add(operation_key)
     
     try:
-        _logger.info(f"Starting commit and push for {rel_filepath}")
+        # Reduce log verbosity
         
         # Check if file has changes
         if repo.is_dirty(path=rel_filepath):
@@ -210,10 +226,10 @@ def _async_commit_and_push(repo: Repo, repo_dir: str, rel_filepath: str):
             repo.index.commit(commit_msg)
             repo.remotes.origin.push()
             
-            _logger.info(f"Commit and push completed for {rel_filepath}")
-            _echo_message(f"Auto-synced: {rel_filepath}")
-        else:
-            _logger.info(f"No changes to commit for {rel_filepath}")
+            # Only show success message if not silent
+            if not _is_silent():
+                _echo_message(f"Auto-synced: {rel_filepath}")
+        # Don't log when there are no changes to avoid noise
             
     except GitCommandError as e:
         _logger.error(f"Git commit/push failed for {rel_filepath}: {e}")

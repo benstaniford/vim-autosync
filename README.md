@@ -130,6 +130,7 @@ Once configured, the plugin works automatically:
 | `g:autosync_pull_interval` | Number | `60` | Seconds between automatic pulls |
 | `g:autosync_commit_message_template` | String | `'Auto-sync: Updated %s'` | Template for commit messages (`%s` is replaced with relative file path) |
 | `g:autosync_silent` | Boolean | `0` | Suppress status messages |
+| `g:autosync_debug` | Boolean | `0` | Enable debug logging (shows detailed operation info) |
 
 ## Troubleshooting
 
@@ -137,6 +138,12 @@ Once configured, the plugin works automatically:
 - Ensure Vim has Python 3 support: `:echo has('python3')`
 - Install GitPython: `pip install GitPython`
 - Check that your directories are Git repositories with configured remotes
+- Enable debug mode to see what's happening: `let g:autosync_debug = 1`
+
+### Seeing log messages at startup
+- This is normal if you have `g:autosync_debug = 1` enabled
+- To suppress all messages, set `let g:autosync_silent = 1`
+- To disable debug logging, set `let g:autosync_debug = 0` (default)
 
 ### Git operations fail
 - Ensure Git repositories are properly initialized

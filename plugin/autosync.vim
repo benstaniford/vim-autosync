@@ -1,5 +1,5 @@
 " vim-autosync - Auto-sync folders to git as you edit files in vim
-" Author: Ben
+" Author: Ben Staniford
 " Version: 1.0
 
 if exists('g:loaded_autosync')
@@ -30,6 +30,10 @@ endif
 
 if !exists('g:autosync_silent')
     let g:autosync_silent = 0
+endif
+
+if !exists('g:autosync_debug')
+    let g:autosync_debug = 0
 endif
 
 " Initialize Python module
