@@ -36,7 +36,7 @@ packadd vim-autosync
 
 #### vim-plug:
 ```vim
-Plug 'yourusername/vim-autosync', { 'on': [] }
+Plug 'yourusername/vim-autosync'
 ```
 
 #### Vundle:
