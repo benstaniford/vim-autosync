@@ -62,8 +62,9 @@ command! AutoSyncPull call autosync#pull_current()
 command! AutoSyncPush call autosync#push_current()
 command! AutoSyncSetup call autosync#setup()
 command! AutoSyncDiagnose call autosync#diagnose()
+command! AutoSyncTestMessages call autosync#test_messages()
 
-" Setup autocommands
+" Setup autocommands and start message timer
 augroup AutoSync
     autocmd!
     if g:autosync_enabled
@@ -71,6 +72,11 @@ augroup AutoSync
         autocmd BufWritePost * call autosync#on_buf_write_post()
     endif
 augroup END
+
+" Start the message processing timer if plugin is enabled
+if g:autosync_enabled
+    call autosync#start_message_timer()
+endif
 
 " Restore cpoptions
 let &cpo = s:save_cpo

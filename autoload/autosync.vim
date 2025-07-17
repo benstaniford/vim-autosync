@@ -3,6 +3,7 @@
 function! autosync#enable()
     let g:autosync_enabled = 1
     call s:setup_autocommands()
+    call s:start_message_timer()
     if !g:autosync_silent
         echo 'AutoSync enabled'
     endif
@@ -13,6 +14,7 @@ function! autosync#disable()
     augroup AutoSync
         autocmd!
     augroup END
+    call s:stop_message_timer()
     if !g:autosync_silent
         echo 'AutoSync disabled'
     endif
@@ -113,12 +115,28 @@ function! s:setup_autocommands()
     augroup END
 endfunction
 
-function! autosync#check_buffer_reload()
+function! autosync#check_buffer_reload(timer_id)
     " Check if current buffer needs to be reloaded after a pull
     " This is called via timer after async pull operations
+    " timer_id parameter is automatically passed by Vim timer system
     if !exists('b:autosync_check_reload') || b:autosync_check_reload
         checktime
         let b:autosync_check_reload = 0
+    endif
+endfunction
+
+function! autosync#process_messages(timer_id)
+    " Process queued messages from Python threads (called via timer)
+    if has('python3')
+        try
+            call s:ensure_python_module()
+            py3 autosync_core.process_queued_messages()
+        catch
+            " Silently fail to avoid infinite loops
+            if g:autosync_debug
+                echohl ErrorMsg | echo 'Error processing messages: ' . v:exception | echohl None
+            endif
+        endtry
     endif
 endfunction
 
@@ -171,6 +189,20 @@ EOF
     echo 'Silent mode: ' . (g:autosync_silent ? 'Yes' : 'No')
     echo 'Debug mode: ' . (exists('g:autosync_debug') ? (g:autosync_debug ? 'Yes' : 'No') : 'No')
     echo 'Auto-commit before pull: ' . (exists('g:autosync_auto_commit_before_pull') ? (g:autosync_auto_commit_before_pull ? 'Yes' : 'No') : 'Yes')
+    echo 'Message timer active: ' . (s:message_timer_id != 0 ? 'Yes' : 'No')
+endfunction
+
+function! autosync#test_messages()
+    " Test the message queue system
+    if has('python3')
+        try
+            call s:ensure_python_module()
+            py3 autosync_core.test_message_queue()
+            echo 'Test messages queued. They should appear shortly if the timer is working.'
+        catch
+            echoerr 'Error testing messages: ' . v:exception
+        endtry
+    endif
 endfunction
 
 function! s:ensure_python_module()
@@ -197,4 +229,32 @@ except NameError:
     except Exception as e:
         vim.command(f"echoerr 'Error initializing autosync_core: {e}'")
 EOF
+endfunction
+
+" Message processing timer management
+let s:message_timer_id = 0
+
+function! autosync#start_message_timer()
+    " Start a recurring timer to process queued messages
+    if s:message_timer_id == 0
+        let s:message_timer_id = timer_start(500, 'autosync#process_messages', {'repeat': -1})
+    endif
+endfunction
+
+function! autosync#stop_message_timer()
+    " Stop the message processing timer
+    if s:message_timer_id != 0
+        call timer_stop(s:message_timer_id)
+        let s:message_timer_id = 0
+    endif
+endfunction
+
+function! s:start_message_timer()
+    " Internal wrapper for backward compatibility
+    call autosync#start_message_timer()
+endfunction
+
+function! s:stop_message_timer()
+    " Internal wrapper for backward compatibility
+    call autosync#stop_message_timer()
 endfunction

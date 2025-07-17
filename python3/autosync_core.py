@@ -25,6 +25,10 @@ _active_operations: Set[str] = set()
 _lock = threading.Lock()
 _initialized = False
 
+# Message queue for thread-safe UI communication
+from queue import Queue
+_message_queue: Queue = Queue()
+
 # Logger setup - disable console output to avoid vim startup messages
 _logger = logging.getLogger('vim-autosync')
 # Only log to file if needed, not to console to avoid vim startup noise
@@ -39,10 +43,12 @@ def initialize():
         error_msg = "vim-autosync requires GitPython. Install with: python3 -m pip install GitPython"
         _logger.error(error_msg)
         try:
-            vim.command(f"echoerr '{error_msg}'")
+            # Try to display error immediately if we're in main thread
+            escaped_msg = error_msg.replace("'", "''")
+            vim.command(f"echoerr '{escaped_msg}'")
         except:
-            # If vim.command fails, we're probably not in a Vim context
-            print(f"ERROR: {error_msg}")
+            # If we can't display immediately, queue it
+            _message_queue.put((error_msg, True))
         raise ImportError("GitPython not available")
     
     # Setup logging based on debug setting
@@ -108,14 +114,40 @@ def _auto_commit_before_pull() -> bool:
 
 
 def _echo_message(message: str, error: bool = False):
-    """Echo a message to Vim if not in silent mode."""
+    """Queue a message to be displayed safely from the main thread."""
     if _is_silent():
         return
     
-    if error:
-        vim.command(f"echoerr '{message}'")
-    else:
-        vim.command(f"echo '{message}'")
+    # Add message to queue - this is thread-safe
+    _message_queue.put((message, error))
+
+
+def process_queued_messages():
+    """Process all queued messages from the main thread. Called via timer."""
+    messages_processed = 0
+    while not _message_queue.empty() and messages_processed < 10:  # Limit to prevent blocking
+        try:
+            message, error = _message_queue.get_nowait()
+            if message == "SCHEDULE_RELOAD":
+                # Special command to schedule buffer reload
+                vim.command("call timer_start(100, 'autosync#check_buffer_reload')")
+            else:
+                # Escape single quotes to prevent vim command errors
+                escaped_message = message.replace("'", "''")
+                if error:
+                    vim.command(f"echohl ErrorMsg | echo '{escaped_message}' | echohl None")
+                else:
+                    vim.command(f"echo '{escaped_message}'")
+            messages_processed += 1
+        except:
+            # Queue is empty or vim.command failed
+            break
+
+
+def test_message_queue():
+    """Test function to verify message queue is working."""
+    _echo_message("Message queue test successful!", error=False)
+    _echo_message("Error message test", error=True)
 
 
 def _get_repo_for_file(filepath: str) -> Optional[Repo]:
@@ -237,8 +269,8 @@ def _async_pull(repo: Repo, repo_dir: str):
         if not _is_silent():
             _echo_message(f"Pulled updates for {os.path.basename(repo_dir)}")
         
-        # Schedule a buffer reload check
-        vim.command(f"call timer_start(100, {{-> autosync#check_buffer_reload()}})")
+        # Schedule a buffer reload check - queue this instead of calling directly
+        _message_queue.put(("SCHEDULE_RELOAD", False))
         
     except GitCommandError as e:
         error_msg = str(e)
