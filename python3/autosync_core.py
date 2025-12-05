@@ -303,19 +303,23 @@ def _async_commit_and_push(repo: Repo, repo_dir: str, rel_filepath: str):
     
     try:
         # Reduce log verbosity
-        
-        # Check if file has changes
-        if repo.is_dirty(path=rel_filepath):
+
+        # Check if file has changes OR is untracked (new file)
+        is_dirty = repo.is_dirty(path=rel_filepath)
+        is_untracked = rel_filepath in repo.untracked_files
+
+        if is_dirty or is_untracked:
             commit_template = _get_commit_template()
             commit_msg = commit_template % rel_filepath
-            
+
             repo.index.add([rel_filepath])
             repo.index.commit(commit_msg)
             repo.remotes.origin.push()
-            
+
             # Only show success message if not silent
             if not _is_silent():
-                _echo_message(f"Auto-synced: {rel_filepath}")
+                file_status = "new file" if is_untracked else "modified"
+                _echo_message(f"Auto-synced: {rel_filepath} ({file_status})")
         # Don't log when there are no changes to avoid noise
             
     except GitCommandError as e:
