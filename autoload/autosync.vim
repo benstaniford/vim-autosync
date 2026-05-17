@@ -3,7 +3,7 @@
 function! autosync#enable()
     let g:autosync_enabled = 1
     call s:setup_autocommands()
-    call s:start_message_timer()
+    call autosync#start_message_timer()
     if !g:autosync_silent
         echo 'AutoSync enabled'
     endif
@@ -14,7 +14,7 @@ function! autosync#disable()
     augroup AutoSync
         autocmd!
     augroup END
-    call s:stop_message_timer()
+    call autosync#stop_message_timer()
     if !g:autosync_silent
         echo 'AutoSync disabled'
     endif
@@ -111,8 +111,21 @@ function! s:setup_autocommands()
         if g:autosync_enabled
             autocmd BufReadPre * call autosync#on_buf_read_pre()
             autocmd BufWritePost * call autosync#on_buf_write_post()
+            autocmd VimLeavePre * call autosync#shutdown()
         endif
     augroup END
+endfunction
+
+function! autosync#shutdown()
+    " Block briefly on VimLeavePre so daemon threads can finish in-flight
+    " push/pull operations before Vim exits and kills them.
+    if has('python3')
+        try
+            py3 autosync_core.shutdown()
+        catch
+            " Best effort — never block exit on errors here.
+        endtry
+    endif
 endfunction
 
 function! autosync#check_buffer_reload(timer_id)
@@ -247,14 +260,4 @@ function! autosync#stop_message_timer()
         call timer_stop(s:message_timer_id)
         let s:message_timer_id = 0
     endif
-endfunction
-
-function! s:start_message_timer()
-    " Internal wrapper for backward compatibility
-    call autosync#start_message_timer()
-endfunction
-
-function! s:stop_message_timer()
-    " Internal wrapper for backward compatibility
-    call autosync#stop_message_timer()
 endfunction

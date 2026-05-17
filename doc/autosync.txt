@@ -67,6 +67,28 @@ g:autosync_silent~
         Example: >
             let g:autosync_silent = 1
 <
+                                                          *g:autosync_debug*
+g:autosync_debug~
+        Enable debug logging to stderr from the Python backend. Useful when
+        diagnosing threading or Git errors.
+        Default: 0
+        Example: >
+            let g:autosync_debug = 1
+<
+                                          *g:autosync_auto_commit_before_pull*
+g:autosync_auto_commit_before_pull~
+        If a managed repository is dirty when a pull is about to run, commit
+        everything (`git add -A`) with a generic message before pulling. When
+        disabled, the pull is skipped while the repo is dirty.
+
+        WARNING: this commits *every* uncommitted change in the repo, not
+        just the file that triggered the pull. Files modified in other
+        buffers will be swept into the commit. If that's not what you want,
+        set this to 0 and commit deliberately.
+        Default: 1
+        Example: >
+            let g:autosync_auto_commit_before_pull = 0
+<
 
 ==============================================================================
 4. COMMANDS                                                 *autosync-commands*
@@ -91,6 +113,14 @@ g:autosync_silent~
 
 :AutoSyncSetup                                               *:AutoSyncSetup*
         Show setup instructions.
+
+:AutoSyncDiagnose                                         *:AutoSyncDiagnose*
+        Print diagnostic information: Python and GitPython availability,
+        plugin path, module load status, and current configuration.
+
+:AutoSyncTestMessages                                 *:AutoSyncTestMessages*
+        Queue test messages through the thread-safe message pipeline. Useful
+        for verifying that the timer-driven UI updates are working.
 
 ==============================================================================
 5. EXAMPLES                                                 *autosync-examples*

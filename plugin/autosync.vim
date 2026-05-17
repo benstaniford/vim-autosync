@@ -70,6 +70,7 @@ augroup AutoSync
     if g:autosync_enabled
         autocmd BufReadPre * call autosync#on_buf_read_pre()
         autocmd BufWritePost * call autosync#on_buf_write_post()
+        autocmd VimLeavePre * call autosync#shutdown()
     endif
 augroup END
 
