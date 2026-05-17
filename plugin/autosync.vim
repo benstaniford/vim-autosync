@@ -77,6 +77,10 @@ augroup END
 " Start the message processing timer if plugin is enabled
 if g:autosync_enabled
     call autosync#start_message_timer()
+    " Catch-up pull for buffers already open at plugin-load time. This matters
+    " for lazy `:packadd` setups that load the plugin from a BufRead autocmd —
+    " the initial BufReadPre fired before our autocmds were registered.
+    call autosync#sync_loaded_buffers()
 endif
 
 " Restore cpoptions

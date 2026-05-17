@@ -150,9 +150,14 @@ def process_queued_messages():
         except Empty:
             break
 
-        if message == "SCHEDULE_RELOAD":
+        if isinstance(message, str) and message.startswith("RELOAD:"):
+            repo_dir = message[len("RELOAD:"):]
+            escaped_dir = repo_dir.replace("'", "''")
             try:
-                vim.command("call timer_start(100, 'autosync#check_buffer_reload')")
+                vim.command(
+                    f"call timer_start(100, "
+                    f"{{_ -> autosync#reload_buffers_in('{escaped_dir}')}})"
+                )
             except vim.error as e:
                 _logger.error(f"Failed to schedule buffer reload: {e}")
             continue
@@ -302,7 +307,7 @@ def _async_pull(repo: "Repo", repo_dir: str, config: Dict[str, object]):
         if not silent:
             _echo_message(f"Pulled updates for {os.path.basename(repo_dir)}")
 
-        _message_queue.put(("SCHEDULE_RELOAD", False))
+        _message_queue.put((f"RELOAD:{repo_dir}", False))
 
     except GitCommandError as e:
         error_msg = str(e)
@@ -391,6 +396,42 @@ def shutdown(timeout: float = 2.0):
 
 
 # --- Vim event handlers (main thread) ----------------------------------------
+
+def sync_loaded_buffers():
+    """Trigger a pull for each managed repo that already has a loaded buffer.
+
+    Called once when the plugin finishes initializing, so that lazy-load
+    setups (e.g. `:packadd` from a `BufRead` autocmd) still get a pull for
+    the very first file opened — the initial `BufReadPre` fired before our
+    autocmds were registered. Main-thread only.
+
+    The pull-interval gate is intentionally bypassed here: this runs once per
+    Vim session at plugin-load time, and the user reasonably expects fresh
+    content when they start a new editing session. The interval still applies
+    to subsequent `BufReadPre` events within the same session.
+    """
+    if not _initialized:
+        return
+    try:
+        seen_repos: Set[str] = set()
+        for buf in vim.buffers:
+            try:
+                name = buf.name
+            except vim.error:
+                continue
+            if not name:
+                continue
+            repo = _get_repo_for_file(name)
+            if not repo:
+                continue
+            repo_dir = str(repo.working_dir)
+            if repo_dir in seen_repos:
+                continue
+            seen_repos.add(repo_dir)
+            _spawn(_async_pull, (repo, repo_dir, _snapshot_config()))
+    except Exception as e:
+        _logger.error(f"Error in sync_loaded_buffers: {e}")
+
 
 def on_buf_read_pre():
     if not _initialized:

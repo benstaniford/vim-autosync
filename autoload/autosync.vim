@@ -128,14 +128,42 @@ function! autosync#shutdown()
     endif
 endfunction
 
-function! autosync#check_buffer_reload(timer_id)
-    " Check if current buffer needs to be reloaded after a pull
-    " This is called via timer after async pull operations
-    " timer_id parameter is automatically passed by Vim timer system
-    if !exists('b:autosync_check_reload') || b:autosync_check_reload
-        checktime
-        let b:autosync_check_reload = 0
+function! autosync#sync_loaded_buffers() abort
+    " Catch-up pull for buffers that were already loaded when the plugin
+    " finished initializing (e.g. lazy `:packadd` from a BufRead autocmd
+    " misses the initial BufReadPre).
+    if has('python3')
+        try
+            call s:ensure_python_module()
+            py3 autosync_core.sync_loaded_buffers()
+        catch
+            if g:autosync_debug
+                echoerr 'AutoSync error in sync_loaded_buffers: ' . v:exception
+            endif
+        endtry
     endif
+endfunction
+
+function! autosync#reload_buffers_in(repo_dir) abort
+    " Reload any loaded, unmodified buffers whose file lives under repo_dir.
+    " Called via timer after an async pull completes. Uses per-buffer
+    " :checktime so 'autoread' handles the silent reload, and skips modified
+    " buffers so we never clobber user edits.
+    let l:dir = resolve(fnamemodify(a:repo_dir, ':p'))
+    if l:dir !~# '[\\/]$'
+        let l:dir = l:dir . '/'
+    endif
+    let l:dir_len = strlen(l:dir)
+
+    for l:buf in getbufinfo({'bufloaded': 1})
+        if empty(l:buf.name) || getbufvar(l:buf.bufnr, '&modified')
+            continue
+        endif
+        let l:name = resolve(fnamemodify(l:buf.name, ':p'))
+        if strpart(l:name, 0, l:dir_len) ==# l:dir
+            execute 'silent! checktime' l:buf.bufnr
+        endif
+    endfor
 endfunction
 
 function! autosync#process_messages(timer_id)
