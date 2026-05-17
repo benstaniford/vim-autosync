@@ -1,6 +1,6 @@
 " vim-autosync - Auto-sync folders to git as you edit files in vim
 " Author: Ben Staniford
-" Version: 1.0
+" Version: 1.1.0
 
 if exists('g:loaded_autosync')
     finish

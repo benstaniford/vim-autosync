@@ -2,7 +2,7 @@
 
 Author: Ben
 License: MIT
-Version: 1.0
+Version: 1.1.0
 
 CONTENTS                                                     *autosync-contents*
 
@@ -23,7 +23,8 @@ to avoid blocking your editing workflow.
 ==============================================================================
 2. REQUIREMENTS                                         *autosync-requirements*
 
-- Vim with Python 3 support (|+python3|)
+- Vim 8.0 or later (uses lambdas, getbufinfo(), and timers)
+- Python 3 support (|+python3|)
 - GitPython library (install with: pip install GitPython)
 - Git repositories that are already initialized with remotes configured
 
